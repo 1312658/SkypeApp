@@ -5,17 +5,31 @@
  */
 package pkg.view;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.ArrayList;
+
 /**
  *
  * @author Don
  */
 public class frmHome extends javax.swing.JFrame {
 
+    String username, address = "localhost";
+    int port = 2222;
+    Socket sock;
+    PrintWriter writer;
+    BufferedReader reader;
+    
+    ArrayList<String> users = new ArrayList();
     /**
      * Creates new form frmHome
      */
     public frmHome() {
         initComponents();
+        startClient();
     }
 
     /**
@@ -152,6 +166,11 @@ public class frmHome extends javax.swing.JFrame {
         jScrollPane1.setViewportView(txtaContent);
 
         btnSend.setText("Send");
+        btnSend.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSendActionPerformed(evt);
+            }
+        });
 
         lblAvatar.setFont(new java.awt.Font("Lucida Grande", 0, 24)); // NOI18N
         lblAvatar.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
@@ -367,6 +386,27 @@ public class frmHome extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_mniExitActionPerformed
 
+    private void btnSendActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSendActionPerformed
+        // TODO add your handling code here:
+         String nothing = "";
+        if ((txtMessage.getText()).equals(nothing)) {
+            txtMessage.setText("");
+            txtMessage.requestFocus();
+        } else {
+            try {
+               writer.println(username + ":" + txtMessage.getText() + ":" + "Chat");
+               writer.flush(); // flushes the buffer
+            } catch (Exception ex) {
+                txtaContent.append("Message was not sent. \n");
+            }
+            txtMessage.setText("");
+            txtMessage.requestFocus();
+        }
+        txtMessage.setText("");
+        txtMessage.requestFocus();
+        
+    }//GEN-LAST:event_btnSendActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -400,6 +440,111 @@ public class frmHome extends javax.swing.JFrame {
                 new frmHome().setVisible(true);
             }
         });
+    }
+    
+    private void startClient()
+    {
+            username = lblName.getText();
+
+            try 
+            {
+                sock = new Socket(address, port);
+                InputStreamReader streamreader = new InputStreamReader(sock.getInputStream());
+                reader = new BufferedReader(streamreader);
+                writer = new PrintWriter(sock.getOutputStream());
+                writer.println(username + ":has connected.:Connect");
+                writer.flush(); 
+            } 
+            catch (Exception ex) 
+            {
+                txtaContent.append("Cannot Connect! Try Again. \n");
+            }
+            ListenThread();
+    }
+    
+    public void ListenThread() 
+    {
+         Thread IncomingReader = new Thread(new IncomingReader());
+         IncomingReader.start();
+    }
+    
+    public class IncomingReader implements Runnable
+    {
+        @Override
+        public void run() 
+        {
+            String[] data;
+            String stream, done = "Done", connect = "Connect", disconnect = "Disconnect", chat = "Chat";
+
+            try 
+            {
+                while ((stream = reader.readLine()) != null) 
+                {
+                     data = stream.split(":");
+
+                     if (data[2].equals(chat)) 
+                     {
+                        txtaContent.append(data[0] + ": " + data[1] + "\n");
+                        txtaContent.setCaretPosition(txtaContent.getDocument().getLength());
+                     } 
+                     else if (data[2].equals(connect))
+                     {
+                        txtaContent.removeAll();
+                        userAdd(data[0]);
+                     } 
+                     else if (data[2].equals(disconnect)) 
+                     {
+                         userRemove(data[0]);
+                     } 
+                     else if (data[2].equals(done)) 
+                     {
+                        //users.setText("");
+                        writeUsers();
+                        users.clear();
+                     }
+                }
+           }catch(Exception ex) { }
+        }
+    }
+    //--------------------------//
+    
+    public void userAdd(String data) 
+    {
+         users.add(data);
+    }
+    
+    //--------------------------//
+    
+    public void userRemove(String data) 
+    {
+         txtaContent.append(data + " is now offline.\n");
+    }
+    
+    //--------------------------//
+    
+    public void writeUsers() 
+    {
+         String[] tempList = new String[(users.size())];
+         users.toArray(tempList);
+         for (String token:tempList) 
+         {
+             //users.append(token + "\n");
+         }
+    }
+    
+    //--------------------------//
+    
+    public void sendDisconnect() 
+    {
+        String bye = (username + ": :Disconnect");
+        try
+        {
+            writer.println(bye); 
+            writer.flush(); 
+        } catch (Exception e) 
+        {
+            txtaContent.append("Could not send Disconnect message.\n");
+        }
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
